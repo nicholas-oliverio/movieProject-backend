@@ -122,7 +122,7 @@ app.get("/users/:id", async (req, res) => {
 
 app.get("/movieList", async (req, res) => {
   try {
-    const movies = await db.collection("movies").find({}, { projection: { title: 1, year: 1, cast: 1, poster: 1 } }).toArray();
+    const movies = await db.collection("movies").find({}, { projection: { title: 1, genres: 1, year: 1 } }).toArray();
     return res.status(200).json({ rc: 0, msg: "Movie list download successful", data: movies });
   } catch (err) {
     console.error(err);
@@ -133,7 +133,7 @@ app.get("/movieList", async (req, res) => {
 app.get("/movieList/:id", async (req, res) => {
   try {
     const _id = new ObjectId(String(req.params.id));
-    const movie = await db.collection("movies").findOne({ _id },{projection: { title: 1, year: 1, poster: 1, lastupdated: 1 },});
+    const movie = await db.collection("movies").findOne({ _id },{projection: { title: 1, year: 1, poster: 1, lastupdated: 1,fullplot:1 },});
     if (!movie) return res.status(404).json({ rc: 1, msg: "Movie not found" });
     return res.json({ rc: 0, msg: "Movie successful found", data: movie });
   } catch (err) {
