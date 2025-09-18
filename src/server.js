@@ -134,13 +134,25 @@ app.get("/movieList/:id", async (req, res) => {
   try {
     const _id = new ObjectId(String(req.params.id));
     const movie = await db.collection("movies").findOne({ _id },{projection: { title: 1, year: 1, poster: 1, lastupdated: 1,fullplot:1 },});
-    if (!movie) return res.status(404).json({ rc: 1, msg: "Movie not found" });
+    if (!movie) return res.status(404).json({ rc: 1, msg: "Movie not found!" });
     return res.json({ rc: 0, msg: "Movie successful found", data: movie });
   } catch (err) {
     console.error(err);
     return res.status(400).json({ rc: 1, msg: "Invalid ID" });
   }
 });
+
+app.delete("/movieList/:id", async (req, res) => {
+  try{
+    const _id = new ObjectId(String(req.params.id));
+    const movie = await db.collection("movies").findOneAndDelete({_id})
+    if(!movie) return res.status(404).json({rc:1 , msg: "Movie not found!"})
+      return res.json({ rc: 0, msg: "Movie successful delete!", data: movie });
+  }catch(err){
+    console.error(err)
+    return res.status(500).json({ rc:1 , msg: "Impossible to delete movie"})
+  }
+})
 
 app.listen(config.PORT, () => {
   console.log(`Server in ascolto su http://localhost:${config.PORT}`);
