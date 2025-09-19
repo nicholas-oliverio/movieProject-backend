@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { title } from "node:process";
 
 dotenv.config();
 
@@ -122,7 +123,7 @@ app.get("/users/:id", async (req, res) => {
 
 app.get("/movieList", async (req, res) => {
   try {
-    const movies = await db.collection("movies").find({}, { projection: { title: 1, genres: 1, year: 1 } }).toArray();
+    const movies = await db.collection("movies").find({}, { projection: {title: 1, genres: 1, year: 1 } }).toArray();
     return res.status(200).json({ rc: 0, msg: "Movie list download successful", data: movies });
   } catch (err) {
     console.error(err);
@@ -153,6 +154,79 @@ app.delete("/movieList/:id", async (req, res) => {
     return res.status(500).json({ rc:1 , msg: "Impossible to delete movie"})
   }
 })
+
+app.post("/addMovie", async (req,res) =>{
+    try{
+      const { title, year, poster, lastupdated, fullplot } = req.body || {};
+      if (!title || !year || !fullplot) {
+        return res.status(400).json({ rc: 1, msg: "title, year e fullplot !" });
+      }
+      const exists = await db.collection("movies").findOne({ $or: [{ title }, { fullplot }] });
+      if (exists) return res.status(409).json({ rc: 1, msg: "Movie already exists" });
+      const movie = await db.collection("movies").insertOne({ title, year, poster, lastupdated: new Date(),fullplot});
+      return res.status(201).json({ rc: 0, msg: "Movie add successful", data: movie });
+    }
+    catch(err){
+      console.error(err)
+      return res.status(500).json({ rc:1 , msg: "Impossible to add movie"})
+    }
+})
+
+// app.patch("/editMovie/:id", async (req,res) =>{
+//   try{
+//     const _id = new ObjectId(String(req.params.id));
+//     const { title, year, poster, fullplot , lastUpdate} = req.body || {};
+//     if (!title || !year || !fullplot) {
+//       return res.status(400).json({ rc: 1, msg: "title, year e fullplot sono obbligatori" });
+//     }
+//     const replacement = {
+//       title,
+//       year,
+//       poster: poster ?? null,
+//       fullplot,
+//       lastUpdate: new Date()
+//     };
+//     const result = await db.collection("movies").findOneAndUpdate({ _id }, replacement,{ returnDocument: "after", upsert: false }  );
+//     if (!result.value) {
+//       return res.status(404).json({ rc: 1, msg: "Movie not found" });
+//     }
+//     return res.status(200).json({ rc: 0, data: result.value });
+//   }catch (err) {
+//     console.error(err);
+//     return res.status(500).json({ rc: 1, msg: err.message});
+//   }
+// });
+app.patch("/editMovie/:id", async (req, res) => {
+  try {
+    const _id = new ObjectId(String(req.params.id));
+
+    // campi che permetti di aggiornare
+    const allowedFields = ["title", "year", "poster", "fullplot"];
+    const set = {};
+
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) {
+        set[key] = req.body[key];
+      }
+    }
+
+    if (Object.keys(set).length === 0) {
+      return res.status(400).json({ rc: 1, msg: "Nessun campo valido da aggiornare" });
+    }
+
+    await db.collection("movies").updateOne({ _id }, { $set: set });
+    const doc = await db.collection("movies").findOne({ _id });
+    if (!doc) {
+      return res.status(404).json({ rc: 1, msg: "Movie not found" });
+    }
+
+    return res.status(200).json({ rc: 0, data: doc });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ rc: 1, msg: err.message });
+  }
+});
+
 
 app.listen(config.PORT, () => {
   console.log(`Server in ascolto su http://localhost:${config.PORT}`);
