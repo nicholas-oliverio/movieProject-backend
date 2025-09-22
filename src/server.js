@@ -4,7 +4,6 @@ import { createRequire } from "node:module";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import { title } from "node:process";
 
 dotenv.config();
 
@@ -124,12 +123,13 @@ app.get("/users/:id", async (req, res) => {
 app.get("/movieList", async (req, res) => {
   try {
     const movies = await db.collection("movies").find({}, { projection: {title: 1, genres: 1, year: 1 } }).toArray();
+    const { id } = req.params._id
     return res.status(200).json({ rc: 0, msg: "Movie list download successful", data: movies });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ rc: 1, msg: err.toString() });
   }
-});
+}); 
 
 app.get("/movieList/:id", async (req, res) => {
   try {
@@ -157,7 +157,7 @@ app.delete("/movieList/:id", async (req, res) => {
 
 app.post("/addMovie", async (req,res) =>{
     try{
-      const { title, year, poster, lastupdated, fullplot } = req.body || {};
+      const { title, year, poster, fullplot } = req.body || {};
       if (!title || !year || !fullplot) {
         return res.status(400).json({ rc: 1, msg: "title, year e fullplot !" });
       }
@@ -172,30 +172,6 @@ app.post("/addMovie", async (req,res) =>{
     }
 })
 
-// app.patch("/editMovie/:id", async (req,res) =>{
-//   try{
-//     const _id = new ObjectId(String(req.params.id));
-//     const { title, year, poster, fullplot , lastUpdate} = req.body || {};
-//     if (!title || !year || !fullplot) {
-//       return res.status(400).json({ rc: 1, msg: "title, year e fullplot sono obbligatori" });
-//     }
-//     const replacement = {
-//       title,
-//       year,
-//       poster: poster ?? null,
-//       fullplot,
-//       lastUpdate: new Date()
-//     };
-//     const result = await db.collection("movies").findOneAndUpdate({ _id }, replacement,{ returnDocument: "after", upsert: false }  );
-//     if (!result.value) {
-//       return res.status(404).json({ rc: 1, msg: "Movie not found" });
-//     }
-//     return res.status(200).json({ rc: 0, data: result.value });
-//   }catch (err) {
-//     console.error(err);
-//     return res.status(500).json({ rc: 1, msg: err.message});
-//   }
-// });
 app.patch("/editMovie/:id", async (req, res) => {
   try {
     const _id = new ObjectId(String(req.params.id));
