@@ -107,43 +107,59 @@ app.get("/me", async (req, res) => {
   }
 });
 
-app.get("/users/:id", async (req, res) => {
+app.get("/movies", async (req, res) => {
   try {
-    const id = String(req.params.id);
-    const _id = new ObjectId(id);
-    const user = await db.collection("users").findOne(_id, { projection: { name: 1, email: 1 } });
-    if (!user) return res.status(404).json({ rc: 1, msg: "User not found" });
-    return res.status(200).json({ rc: 0, msg: "User found successful", data: user });
-  } catch (err) {
-    console.error(err);
-    return res.status(400).json({ rc: 1, msg: "Invalid ID" });
-  }
-});
+    const { id, name, year, genres } = req.query;
+    const query = {};
 
-app.get("/movieList", async (req, res) => {
-  try {
-    const movies = await db.collection("movies").find({}, { projection: {title: 1, genres: 1, year: 1 } }).toArray();
-    const { id } = req.params._id
-    return res.status(200).json({ rc: 0, msg: "Movie list download successful", data: movies });
+    if (id) {
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ rc: 1, msg: "Invalid id format" });
+      }
+      const projection = { projection: { _id: 1, title: 1, genres: 1, year: 1,fullplot:1,poster:1 } };
+      const item = await db
+        .collection("movies")
+        .findOne({ _id: new ObjectId(id) }, projection);
+
+      if (!item) {
+        return res.status(404).json({ rc: 1, msg: "Movie not found" });
+      }
+
+      return res
+        .status(200)
+        .json({ rc: 0, msg: "Movie fetched successfully", data: item });
+    }
+    else{
+    if (name && name.trim()) {
+      query.title = { $regex: `^${name.trim()}`, $options: "i" };
+    }
+    if (year) {
+      const y = parseInt(year, 10);
+      if (!Number.isNaN(y)) query.year = y;
+    }
+    if (genres) {
+      const list = Array.isArray(genres)
+        ? genres
+        : String(genres).split(",").map(g => g.trim()).filter(Boolean);
+      if (list.length) query.genres = { $in: list };
+    }
+
+    const projection = { projection: { _id: 1, title: 1, genres: 1, year: 1 } };
+    const items = await db.collection("movies").find(query, projection).toArray();
+
+    return res.status(200).json({
+      rc: 0,
+      msg: "Movies fetched successfully",
+      data: items
+    });
+    }
   } catch (err) {
     console.error(err);
     return res.status(500).json({ rc: 1, msg: err.toString() });
   }
-}); 
-
-app.get("/movieList/:id", async (req, res) => {
-  try {
-    const _id = new ObjectId(String(req.params.id));
-    const movie = await db.collection("movies").findOne({ _id },{projection: { title: 1, year: 1, poster: 1, lastupdated: 1,fullplot:1 },});
-    if (!movie) return res.status(404).json({ rc: 1, msg: "Movie not found!" });
-    return res.json({ rc: 0, msg: "Movie successful found", data: movie });
-  } catch (err) {
-    console.error(err);
-    return res.status(400).json({ rc: 1, msg: "Invalid ID" });
-  }
 });
 
-app.delete("/movieList/:id", async (req, res) => {
+app.delete("/movies/:id", async (req, res) => {
   try{
     const _id = new ObjectId(String(req.params.id));
     const movie = await db.collection("movies").findOneAndDelete({_id})
@@ -155,7 +171,7 @@ app.delete("/movieList/:id", async (req, res) => {
   }
 })
 
-app.post("/addMovie", async (req,res) =>{
+app.post("/movies", async (req,res) =>{
     try{
       const { title, year, poster, fullplot } = req.body || {};
       if (!title || !year || !fullplot) {
@@ -163,7 +179,7 @@ app.post("/addMovie", async (req,res) =>{
       }
       const exists = await db.collection("movies").findOne({ $or: [{ title }, { fullplot }] });
       if (exists) return res.status(409).json({ rc: 1, msg: "Movie already exists" });
-      const movie = await db.collection("movies").insertOne({ title, year, poster, lastupdated: new Date(),fullplot});
+      const movie = await db.collection("movies").insertOne({ title, year, poster, tomatoes:{lastupdated: new Date()},fullplot});
       return res.status(201).json({ rc: 0, msg: "Movie add successful", data: movie });
     }
     catch(err){
@@ -172,11 +188,9 @@ app.post("/addMovie", async (req,res) =>{
     }
 })
 
-app.patch("/editMovie/:id", async (req, res) => {
+app.patch("/movies/:id", async (req, res) => {
   try {
     const _id = new ObjectId(String(req.params.id));
-
-    // campi che permetti di aggiornare
     const allowedFields = ["title", "year", "poster", "fullplot"];
     const set = {};
 
