@@ -15,7 +15,7 @@ app.use(
   cors({
     origin: "http://localhost:8080",
     credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"], // FIX: consenti Authorization
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
