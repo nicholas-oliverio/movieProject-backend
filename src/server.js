@@ -216,11 +216,27 @@ app.patch("/movies/:id", async (req, res) => {
     return res.status(500).json({ rc: 1, msg: err.message });
   }
 });
+
 app.patch("/pokemon/:teamId" , async (req,res) =>{
   try{
   const { teamId } = req.params   
   const newMember = req.body
   
+  const team = await db.collection("teams").findOne({_id:teamId})
+
+  if (!team) {
+      return res.status(404).json({ error: "Team non trovato" });
+  }
+
+    const exists = (team.members || []).some(m => m.name === newMember.name);
+    if (exists) {
+      return res.status(400).json({ error: `Il Pokémon ${newMember.name} è già nella squadra` });
+    }
+
+    if ((team.members || []).length >= 6) {
+      return res.status(400).json({ error: "Team pieno (max 6 Pokémon)" });
+    }
+
   const result = await db.collection("teams").updateOne({ _id: teamId, $expr: { $lt: [ { $size: "$members" }, 6 ] } }, { $push: { members: newMember } })
    if (result.modifiedCount === 0) {
       return res.status(400).json({ error: "Team pieno (max 6) o non trovato" })
