@@ -216,6 +216,75 @@ app.patch("/movies/:id", async (req, res) => {
     return res.status(500).json({ rc: 1, msg: err.message });
   }
 });
+app.patch("/pokemon/:teamId" , async (req,res) =>{
+  try{
+  const { teamId } = req.params   
+  const newMember = req.body
+  
+  const result = await db.collection("teams").updateOne({ _id: teamId, $expr: { $lt: [ { $size: "$members" }, 6 ] } }, { $push: { members: newMember } })
+   if (result.modifiedCount === 0) {
+      return res.status(400).json({ error: "Team pieno (max 6) o non trovato" })
+    } 
+  return res.status(200).json({rc:0 ,msg: 'successfull add', data: result})
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: "Errore server" })
+  }
+})
+
+app.patch("/pokemon/:teamId/removeByName" , async (req,res) => {
+  try{
+  const {teamId} = req.params
+  const {name} = req.body
+
+   if (!name || typeof name !== "string") {
+      return res.status(400).json({ error: "Serve un 'name' valido nel body" });
+    }
+
+   const result = await db.collection("teams").updateOne(
+  { _id: teamId },               
+  { $pull: { members: { name: name } } } 
+  )
+
+  if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "Team non trovato" });
+    }
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: "Pokémon non trovato nella squadra" });
+    }
+
+  return res.status(200).json({rc:0 ,msg: 'successfull delete'})
+}catch(err){
+  console.error(err)
+  return res.status(500).json({ error: "Errore server" })
+}
+})
+app.get("/pokemon/:teamId", async (req, res) => {
+  try {
+    const { teamId } = req.params;
+
+    const team = await db.collection("teams").findOne(
+      { _id: teamId },
+      { projection: { _id:1, name: 1, members: 1 } }
+    );
+
+    if (!team) {
+      return res.status(404).json({ error: "Team not found" });
+    }
+
+    const members = [...(team.members ?? []), null, null, null, null, null].slice(0, 6);
+
+    return res.status(200).json({
+      rc: 0,
+      msg: "Team fetched successfully",
+      data: { ...team, members }
+    });
+  } catch (err) {
+    console.error("Errore GET /pokemon/:teamId:", err);
+    return res.status(500).json({ error: "Errore server" });
+  }
+});
+
 
 
 app.listen(config.PORT, () => {
