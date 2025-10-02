@@ -170,7 +170,26 @@ app.delete("/movies/:id", async (req, res) => {
     return res.status(500).json({ rc:1 , msg: "Impossible to delete movie"})
   }
 })
+app.patch('/pokemon/reset-enemies', async (req, res) => {
+  try {
+    const emptyMembers = [];
+    const enemyTeamIds = ['team-2', 'team-3', 'team-4'];
 
+
+    const result = await db.collection("teams").updateMany(
+      { _id: { $in: enemyTeamIds } },
+      { $set: { members: emptyMembers } }
+    );
+
+    res.status(200).json({ 
+      message: 'Tutti i team nemici sono stati resettati', 
+      modifiedCount: result.modifiedCount 
+    });
+  } catch (err) {
+    console.error('Errore reset team nemici:', err);
+    res.status(500).json({ message: 'Errore durante il reset dei team nemici' });
+  }
+});
 app.post("/movies", async (req,res) =>{
     try{
       const { title, year, poster, fullplot } = req.body || {};
@@ -301,6 +320,21 @@ app.get("/pokemon/:teamId", async (req, res) => {
   }
 });
 
+app.get("/pokemonEnemie" , async (req,res) =>{
+  try{
+    const randomPokemon = await db.collection('pokemon').aggregate([
+      { $unwind: "$results" },
+      { $sample: { size: 6 } },
+      { $project: { _id: 0,name: "$results.name" } }
+    ]).toArray();
+
+    return res.status(200).json({ rc:0, msg:"Team enemie succesfull fetched", data:randomPokemon})
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({rc: 1 , error: 'Errore server'})
+  }
+
+})
 
 
 app.listen(config.PORT, () => {
