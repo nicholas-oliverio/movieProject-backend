@@ -22,7 +22,7 @@ app.use(
 const config = {
   PORT: process.env.PORT || 3000,
   TOKEN_SIGN_KEY: process.env.TOKEN_SIGN_KEY,
-  MONGODB_URI: process.env.MONGODB_URI,
+  MONGODB_URI: process.env.MONGODB_URI,                                             
   MONGODB_DB: process.env.MONGODB_DB,
 };
 
@@ -61,14 +61,14 @@ function authMiddleware(req, res, next) {
 }
 
 app.post("/login", async (req, res) => {
-  try {
+  try{
     const { name, password } = req.body;
     const user = await db.collection("users").findOne({ name });
     if (!user) return res.status(404).json({ rc: 1, msg: `User ${name} not found` });
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ rc: 1, msg: "Invalid credentials" });
     const payload = { sub: user._id.toString(), name: user.name };
-    const token = jwt.sign(payload, config.TOKEN_SIGN_KEY, { expiresIn: "1h" });
+    const token = jwt.sign(payload, config.TOKEN_SIGN_KEY, { expiresIn: "12h" });
     return res.status(200).json({ rc: 0, msg: "Login successful", token });
   } catch (err) {
     console.error(err);
@@ -93,7 +93,7 @@ app.post("/register", async (req, res) => {
   }
 });
 
-app.use(authMiddleware);
+// app.use(authMiddleware);
 
 app.get("/me", async (req, res) => {
   try {
@@ -173,14 +173,14 @@ app.delete("/movies/:id", async (req, res) => {
 app.patch('/pokemon/reset-enemies', async (req, res) => {
   try {
     const emptyMembers = [];
-    const enemyTeamIds = ['team-2', 'team-3', 'team-4'];
+    const enemyTeamIds = req.body;
 
 
     const result = await db.collection("teams").updateMany(
       { _id: { $in: enemyTeamIds } },
       { $set: { members: emptyMembers } }
     );
-
+    
     res.status(200).json({ 
       message: 'Tutti i team nemici sono stati resettati', 
       modifiedCount: result.modifiedCount 
@@ -267,6 +267,55 @@ app.patch("/pokemon/:teamId" , async (req,res) =>{
   }
 })
 
+
+app.patch("/pokemon/:teamId/removeHp" , async (req,res) => {
+    try{
+      const {teamId} = req.params
+      const { name, damage } = req.body
+
+      const idFilter = ObjectId.isValid(teamId) ? new ObjectId(teamId) : teamId;
+
+      const result = await db.collection("teams").findOneAndUpdate(
+      { _id: idFilter, "members.name": name },  
+      {  $inc: { "members.$.hp": -Math.abs(damage) }  },
+      { returnDocument: "after" } 
+      )
+
+
+      if (!result) {
+      return res.status(404).json({ error: "Team o Pokémon non trovato" })
+      }
+      const team = await db.collection("teams").findOne({ _id: idFilter });
+      const updatedMember = team.members.find(m => m.name === name);
+
+      if (!updatedMember) {
+        return res.status(404).json({ error: "Membro non trovato" });
+      }
+
+   
+
+    if (updatedMember.hp <= 0) {
+
+      await db.collection("teams").updateOne(
+        { _id: idFilter },
+        { $pull: { members: { name: name } } }
+      );
+
+      return res.status(200).json({
+        message: `${name} è stato eliminato dal team (HP esauriti).`
+      });
+    }
+
+
+
+    return res.status(200).json({ message: `HP sottratti a ${name}`,data: result})
+
+    }catch(err){
+      console.error(err)
+      res.status(500).json({ error: "Errore interno server" })
+    }
+})
+
 app.patch("/pokemon/:teamId/removeByName" , async (req,res) => {
   try{
   const {teamId} = req.params
@@ -327,7 +376,6 @@ app.get("/pokemonEnemie" , async (req,res) =>{
       { $sample: { size: 6 } },
       { $project: { _id: 0,name: "$results.name" } }
     ]).toArray();
-
     return res.status(200).json({ rc:0, msg:"Team enemie succesfull fetched", data:randomPokemon})
   } catch (err) {
     console.error(err)
